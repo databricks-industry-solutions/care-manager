@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font-family: "DM Sans", system-ui, sans-serif;
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
+  -webkit-font-smoothing: antialiased;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Clinical palette as RGB triplets so Tailwind's rgb(var(--x) / <alpha>) tokens
+   resolve. Flip the whole theme by toggling the `dark` class on <html>. */
+:root {
+  --c-bg: 246 248 250;
+  --c-card: 255 255 255;
+  --c-ink: 27 39 51;
+  --c-muted: 91 107 123;
+  --c-line: 228 233 238;
+  --c-accent: 11 107 203;
+  --c-risk-high: 217 45 32;
+  --c-risk-highbg: 254 243 242;
+  --c-risk-rising: 181 71 8;
+  --c-risk-risingbg: 255 250 235;
+  color-scheme: light;
+}
+html.dark {
+  --c-bg: 15 20 26;
+  --c-card: 26 33 43;
+  --c-ink: 230 237 243;
+  --c-muted: 148 165 182;
+  --c-line: 43 52 65;
+  --c-accent: 88 165 255;
+  --c-risk-high: 255 120 108;
+  --c-risk-highbg: 58 29 26;
+  --c-risk-rising: 240 170 100;
+  --c-risk-risingbg: 52 40 22;
+  color-scheme: dark;
+}
+
+/* Tailwind Preflight doesn't set a pointer cursor on buttons; add it back so
+   every interactive control reads as clickable on desktop (harmless on touch). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+:root {
+  /* Bottom inset for the iPhone home indicator (0 on devices without one).
+     --nav-h is the Care Manager bottom-nav height + that inset, so fixed
+     bars and content padding can reference one value instead of magic px. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-h: calc(62px + var(--safe-bottom));
+}
+
+@keyframes cm-toast-in {
+  from { transform: translate(-50%, 10px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+.animate-toast-in { animation: cm-toast-in 0.18s ease-out; }
+
+@keyframes cm-sheet-in {
+  from { transform: translateY(14px); opacity: 0.5; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-sheet-in { animation: cm-sheet-in 0.2s ease-out; }

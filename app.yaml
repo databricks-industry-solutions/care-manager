@@ -1,0 +1,24 @@
+command:
+  - "python"
+  - "-m"
+  - "uvicorn"
+  - "app:app"
+  - "--host"
+  - "0.0.0.0"
+  - "--port"
+  - "8000"
+
+env:
+  # Foundation Model API. AI_GATEWAY_URL is intentionally NOT set here: when
+  # absent, the app derives the OpenAI-compatible base URL from its own
+  # workspace host (server/llm.py), so this config is portable across
+  # workspaces/clouds. Override only to force an external gateway.
+  - name: SERVING_ENDPOINT
+    value: "databricks-claude-sonnet-4-6"
+  # Lakebase Postgres. PGHOST/PGUSER/PGPORT/PGDATABASE are injected by the
+  # "database" app resource at runtime; we pin the logical db + instance name
+  # so db.py resolves correctly even if an env var is absent.
+  - name: PGDATABASE
+    value: "caremanager"
+  - name: LAKEBASE_INSTANCE
+    value: "care-manager-db"

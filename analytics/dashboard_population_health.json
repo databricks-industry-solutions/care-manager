@@ -1,0 +1,700 @@
+{
+  "display_name": "Population Health \u2014 Unity Health",
+  "serialized": {
+    "datasets": [
+      {
+        "name": "ph_kpi",
+        "displayName": "Pop Health KPIs",
+        "queryLines": [
+          "SELECT\n            (SELECT count(DISTINCT r.patient_id) FROM hls_provider.population_health.patient_registry r\n                JOIN (SELECT DISTINCT patient_id FROM hls_provider.population_health.care_gaps WHERE gap_status='Open') g\n                ON r.patient_id=g.patient_id WHERE r.risk_tier IN ('High','Rising')) AS care_managed_pop,\n            (SELECT count(*) FROM hls_provider.population_health.patient_registry WHERE risk_tier='High') AS high_risk,\n            (SELECT count(*) FROM hls_provider.population_health.care_gaps WHERE gap_status='Open') AS open_gaps,\n            (SELECT avg(CASE WHEN gap_status='Closed' THEN 1.0 ELSE 0 END) FROM hls_provider.population_health.care_gaps) AS closure_rate,\n            (SELECT avg(predicted_annual_cost) FROM hls_provider.population_health.risk_scores) AS avg_cost,\n            (SELECT avg(CASE WHEN transportation_barrier OR food_insecurity OR housing_instability THEN 1.0 ELSE 0 END) FROM hls_provider.population_health.sdoh) AS sdoh_barrier_rate"
+        ]
+      },
+      {
+        "name": "ph_risk_dist",
+        "displayName": "Risk Tier Distribution",
+        "queryLines": [
+          "SELECT risk_tier, count(*) AS patients FROM hls_provider.population_health.patient_registry GROUP BY 1"
+        ]
+      },
+      {
+        "name": "ph_gaps_measure",
+        "displayName": "Open Gaps by Measure",
+        "queryLines": [
+          "SELECT measure, count(*) AS open_gaps FROM hls_provider.population_health.care_gaps WHERE gap_status='Open' GROUP BY 1"
+        ]
+      },
+      {
+        "name": "ph_closure_measure",
+        "displayName": "Closure Rate by Measure",
+        "queryLines": [
+          "SELECT measure, avg(CASE WHEN gap_status='Closed' THEN 1.0 ELSE 0 END) AS closure_rate FROM hls_provider.population_health.care_gaps GROUP BY 1"
+        ]
+      },
+      {
+        "name": "ph_sdoh",
+        "displayName": "SDOH Barriers",
+        "queryLines": [
+          "SELECT 'Transportation' AS barrier, sum(CASE WHEN transportation_barrier THEN 1 ELSE 0 END) AS patients FROM hls_provider.population_health.sdoh\n            UNION ALL SELECT 'Food insecurity', sum(CASE WHEN food_insecurity THEN 1 ELSE 0 END) FROM hls_provider.population_health.sdoh\n            UNION ALL SELECT 'Housing instability', sum(CASE WHEN housing_instability THEN 1 ELSE 0 END) FROM hls_provider.population_health.sdoh\n            UNION ALL SELECT 'Interpreter needed', sum(CASE WHEN interpreter_needed THEN 1 ELSE 0 END) FROM hls_provider.population_health.sdoh"
+        ]
+      }
+    ],
+    "pages": [
+      {
+        "name": "cc04af77",
+        "displayName": "Overview",
+        "pageType": "PAGE_TYPE_CANVAS",
+        "layout": [
+          {
+            "widget": {
+              "name": "94b8aac4",
+              "multilineTextboxSpec": {
+                "lines": [
+                  "## Population Health"
+                ]
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 1
+            }
+          },
+          {
+            "widget": {
+              "name": "2d73ea63",
+              "multilineTextboxSpec": {
+                "lines": [
+                  "Risk stratification, care gaps, and social barriers \u2014 the panel care managers work"
+                ]
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 1,
+              "width": 6,
+              "height": 1
+            }
+          },
+          {
+            "widget": {
+              "name": "0c023944",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "care_managed_pop",
+                        "expression": "`care_managed_pop`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "care_managed_pop",
+                    "displayName": "Care-Managed Population",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Care-Managed Population"
+                }
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 2,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "15eb3144",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "high_risk",
+                        "expression": "`high_risk`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "high_risk",
+                    "displayName": "High-Risk Patients",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "High-Risk Patients"
+                }
+              }
+            },
+            "position": {
+              "x": 2,
+              "y": 2,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "14e5f9e7",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "open_gaps",
+                        "expression": "`open_gaps`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "open_gaps",
+                    "displayName": "Open Care Gaps",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Open Care Gaps"
+                }
+              }
+            },
+            "position": {
+              "x": 4,
+              "y": 2,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "de3fb9d8",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "closure_rate",
+                        "expression": "`closure_rate`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "closure_rate",
+                    "displayName": "Care Gap Closure Rate",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      }
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Care Gap Closure Rate"
+                }
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 5,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "c36f16d4",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "avg_cost",
+                        "expression": "`avg_cost`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "avg_cost",
+                    "displayName": "Avg Predicted Annual Cost",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Avg Predicted Annual Cost"
+                }
+              }
+            },
+            "position": {
+              "x": 2,
+              "y": 5,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "086a625d",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_kpi",
+                    "fields": [
+                      {
+                        "name": "sdoh_barrier_rate",
+                        "expression": "`sdoh_barrier_rate`"
+                      }
+                    ],
+                    "disaggregated": true
+                  }
+                }
+              ],
+              "spec": {
+                "version": 2,
+                "widgetType": "counter",
+                "encodings": {
+                  "value": {
+                    "fieldName": "sdoh_barrier_rate",
+                    "displayName": "Patients w/ SDOH Barrier",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      }
+                    }
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Patients w/ SDOH Barrier"
+                }
+              }
+            },
+            "position": {
+              "x": 4,
+              "y": 5,
+              "width": 2,
+              "height": 3
+            }
+          },
+          {
+            "widget": {
+              "name": "c45b23cd",
+              "multilineTextboxSpec": {
+                "lines": [
+                  "### Risk, Gaps & Barriers"
+                ]
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 8,
+              "width": 6,
+              "height": 1
+            }
+          },
+          {
+            "widget": {
+              "name": "32af5d45",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_risk_dist",
+                    "fields": [
+                      {
+                        "name": "sum(patients)",
+                        "expression": "SUM(`patients`)"
+                      },
+                      {
+                        "name": "risk_tier",
+                        "expression": "`risk_tier`"
+                      }
+                    ],
+                    "disaggregated": false
+                  }
+                }
+              ],
+              "spec": {
+                "version": 3,
+                "widgetType": "pie",
+                "encodings": {
+                  "angle": {
+                    "fieldName": "sum(patients)",
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "displayName": "Risk Tier Distribution"
+                  },
+                  "color": {
+                    "fieldName": "risk_tier",
+                    "scale": {
+                      "type": "categorical"
+                    },
+                    "displayName": "Risk Tier"
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Risk Tier Distribution"
+                },
+                "mark": {
+                  "colors": [
+                    "#FFAB00",
+                    "#00A972",
+                    "#FF3621",
+                    "#8BCAE7",
+                    "#AB4057",
+                    "#99DDB4",
+                    "#FCA4A1",
+                    "#919191"
+                  ]
+                }
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 9,
+              "width": 3,
+              "height": 6
+            }
+          },
+          {
+            "widget": {
+              "name": "a9713c94",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_sdoh",
+                    "fields": [
+                      {
+                        "name": "barrier",
+                        "expression": "`barrier`"
+                      },
+                      {
+                        "name": "sum(patients)",
+                        "expression": "SUM(`patients`)"
+                      }
+                    ],
+                    "disaggregated": false
+                  }
+                }
+              ],
+              "spec": {
+                "version": 3,
+                "widgetType": "bar",
+                "encodings": {
+                  "x": {
+                    "fieldName": "sum(patients)",
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "displayName": "Patients",
+                    "format": {
+                      "type": "number-plain",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  },
+                  "y": {
+                    "fieldName": "barrier",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "x-reversed"
+                      }
+                    },
+                    "displayName": "SDOH Barrier"
+                  },
+                  "label": {
+                    "show": true
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Patients by SDOH Barrier"
+                },
+                "mark": {
+                  "colors": [
+                    "#FFAB00",
+                    "#00A972",
+                    "#FF3621",
+                    "#8BCAE7",
+                    "#AB4057",
+                    "#99DDB4",
+                    "#FCA4A1",
+                    "#919191"
+                  ]
+                }
+              }
+            },
+            "position": {
+              "x": 3,
+              "y": 9,
+              "width": 3,
+              "height": 6
+            }
+          },
+          {
+            "widget": {
+              "name": "fdf29759",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_gaps_measure",
+                    "fields": [
+                      {
+                        "name": "measure",
+                        "expression": "`measure`"
+                      },
+                      {
+                        "name": "sum(open_gaps)",
+                        "expression": "SUM(`open_gaps`)"
+                      }
+                    ],
+                    "disaggregated": false
+                  }
+                }
+              ],
+              "spec": {
+                "version": 3,
+                "widgetType": "bar",
+                "encodings": {
+                  "x": {
+                    "fieldName": "sum(open_gaps)",
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "displayName": "Open Gaps",
+                    "format": {
+                      "type": "number-plain",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      },
+                      "hideGroupSeparator": false
+                    }
+                  },
+                  "y": {
+                    "fieldName": "measure",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "x-reversed"
+                      }
+                    },
+                    "displayName": "Care Gap Measure"
+                  },
+                  "label": {
+                    "show": true
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Open Care Gaps by Measure"
+                },
+                "mark": {
+                  "colors": [
+                    "#FFAB00",
+                    "#00A972",
+                    "#FF3621",
+                    "#8BCAE7",
+                    "#AB4057",
+                    "#99DDB4",
+                    "#FCA4A1",
+                    "#919191"
+                  ]
+                }
+              }
+            },
+            "position": {
+              "x": 0,
+              "y": 15,
+              "width": 3,
+              "height": 7
+            }
+          },
+          {
+            "widget": {
+              "name": "938e6549",
+              "queries": [
+                {
+                  "name": "main_query",
+                  "query": {
+                    "datasetName": "ph_closure_measure",
+                    "fields": [
+                      {
+                        "name": "measure",
+                        "expression": "`measure`"
+                      },
+                      {
+                        "name": "avg(closure_rate)",
+                        "expression": "AVG(`closure_rate`)"
+                      }
+                    ],
+                    "disaggregated": false
+                  }
+                }
+              ],
+              "spec": {
+                "version": 3,
+                "widgetType": "bar",
+                "encodings": {
+                  "x": {
+                    "fieldName": "avg(closure_rate)",
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "displayName": "Closure Rate",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 1
+                      }
+                    }
+                  },
+                  "y": {
+                    "fieldName": "measure",
+                    "scale": {
+                      "type": "categorical",
+                      "sort": {
+                        "by": "x-reversed"
+                      }
+                    },
+                    "displayName": "Care Gap Measure"
+                  },
+                  "label": {
+                    "show": true
+                  }
+                },
+                "frame": {
+                  "showTitle": true,
+                  "title": "Care Gap Closure Rate by Measure"
+                },
+                "mark": {
+                  "colors": [
+                    "#FFAB00",
+                    "#00A972",
+                    "#FF3621",
+                    "#8BCAE7",
+                    "#AB4057",
+                    "#99DDB4",
+                    "#FCA4A1",
+                    "#919191"
+                  ]
+                }
+              }
+            },
+            "position": {
+              "x": 3,
+              "y": 15,
+              "width": 3,
+              "height": 7
+            }
+          }
+        ]
+      }
+    ],
+    "uiSettings": {
+      "theme": {
+        "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+      }
+    }
+  }
+}

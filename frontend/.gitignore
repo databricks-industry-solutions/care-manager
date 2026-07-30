@@ -1,0 +1,26 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+# NOTE: dist/ is intentionally NOT ignored — it is the built frontend bundle that
+# `databricks sync` must upload for the Databricks App to serve the current UI.
+# (databricks sync respects .gitignore; ignoring dist ships a stale bundle.)
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

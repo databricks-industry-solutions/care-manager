@@ -1,94 +1,136 @@
+# Care Manager — Databricks Asset Bundle
+# =======================================
+# Deploys the Care Manager app plus a seed job that (1) generates the synthetic
+# `hls_provider`-style dataset into a Unity Catalog catalog and (2) loads the
+# read tables into a Lakebase Postgres database the app queries at runtime.
+#
+# Customer install:
+#   databricks bundle deploy  -t prod
+#   databricks bundle run seed -t prod     # generate data + seed Lakebase (once)
+# The app URL is printed by `bundle deploy`.
+#
+# Prerequisites in the target workspace:
+#   - Unity Catalog + a catalog the deployer can write to  (var: catalog)
+#   - Lakebase enabled; the instance named by var.lakebase_instance
+#     (create once: databricks database create-database-instance
+#        --json '{"name":"care-manager-db","capacity":"CU_1"}')
+#   - A SQL warehouse                                        (var: warehouse_id)
+#   - Foundation Model API / Claude serving endpoint         (var: serving_endpoint)
 bundle:
-  name: demo_workflow
+  name: care-manager
 
 variables:
-  # Project name - replace with your solution accelerator name
-  project_name:
-    description: "Name of your solution accelerator"
-    default: "my-solution-accelerator"
-    
-  # The "warehouse_id" variable is used to reference the warehouse used by the dashboard.
+  catalog:
+    description: Unity Catalog catalog that holds the synthetic hls_provider dataset.
+    default: hls_provider
+  lakebase_instance:
+    description: Lakebase (Postgres) instance name the app reads from.
+    default: care-manager-db
+  pg_database:
+    description: Logical Postgres database seeded from the catalog.
+    default: caremanager
   warehouse_id:
-    lookup:
-      # Replace this with the name of your SQL warehouse.
-      warehouse: "Shared Unity Catalog Serverless"
-      
-  # Environment variable used for deployment paths
-  environment:
-    description: "Deployment environment (dev, staging, prod)"
-    default: "dev"
+    description: SQL warehouse id used by the seed job to read the catalog (required; pass --var warehouse_id=<id> or via install.sh --warehouse).
+  serving_endpoint:
+    description: Claude / Foundation Model API serving endpoint for AI briefs.
+    default: databricks-claude-sonnet-4-6
+
+resources:
+  apps:
+    care_manager:
+      name: care-manager
+      description: Outpatient care manager worklist with Lakebase + AI outreach briefs.
+      source_code_path: ./
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: serving-endpoint
+          serving_endpoint:
+            name: ${var.serving_endpoint}
+            permission: CAN_QUERY
+        - name: database
+          database:
+            instance_name: ${var.lakebase_instance}
+            database_name: ${var.pg_database}
+            permission: CAN_CONNECT_AND_CREATE
+
+  jobs:
+    seed:
+      name: care-manager-seed
+      description: Generate the synthetic dataset, load Lakebase, and grant the app SP.
+      tasks:
+        - task_key: generate_dataset
+          environment_key: seed_env
+          spark_python_task:
+            python_file: ./scripts/generate_hls_provider.py
+            parameters: ["--catalog", "${var.catalog}"]
+        - task_key: generate_clinical_notes
+          depends_on:
+            - task_key: generate_dataset
+          environment_key: seed_env
+          spark_python_task:
+            python_file: ./scripts/generate_clinical_notes.py
+            # Bounded sample: the app only needs some notes to demo. Use --all for
+            # a full backfill (many ai_query calls — slow/costly).
+            parameters: ["--catalog", "${var.catalog}", "--limit", "100"]
+        - task_key: load_lakebase
+          depends_on:
+            - task_key: generate_clinical_notes
+          environment_key: seed_env
+          spark_python_task:
+            python_file: ./scripts/load_lakebase.py
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--warehouse"
+              - "${var.warehouse_id}"
+              - "--instance"
+              - "${var.lakebase_instance}"
+              - "--database"
+              - "${var.pg_database}"
+        - task_key: grant_app_sp
+          depends_on:
+            - task_key: load_lakebase
+          environment_key: seed_env
+          spark_python_task:
+            python_file: ./scripts/grant_app_sp.py
+            parameters:
+              - "--app"
+              - "care-manager"
+              - "--database"
+              - "${var.pg_database}"
+        - task_key: deploy_analytics
+          depends_on:
+            - task_key: load_lakebase
+          environment_key: seed_env
+          spark_python_task:
+            python_file: ./scripts/deploy_analytics.py
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--warehouse"
+              - "${var.warehouse_id}"
+      environments:
+        - environment_key: seed_env
+          spec:
+            client: "3"
+            dependencies:
+              - polars
+              - numpy
+              - mimesis
+              - pandas
+              - pyarrow
+              - psycopg[binary]
+              # The serverless base image ships an older databricks-sdk without
+              # the Lakebase `WorkspaceClient.database` API; pin a version that
+              # has it so load_lakebase/grant_app_sp can reach the instance.
+              - databricks-sdk>=0.116.0
 
 targets:
   dev:
-    default: true
     mode: development
-
-# Customize the resources below based on your solution accelerator needs
-resources:
-  # Uncomment and customize if you have Databricks Apps
-  # apps:
-  #   your_app:
-  #     name: "your-app-name"
-  #     description: "Your app description"
-  #     source_code_path: "/Users/${workspace.current_user.userName}/${var.project_name}-${var.environment}/files/apps/your_app"
-
-  # Uncomment and customize if you have dashboards
-  # dashboards:
-  #   your_dashboard:
-  #     display_name: "Your Dashboard"
-  #     file_path: "./dashboards/your_dashboard.lvdash.json"
-  #     warehouse_id: "${var.warehouse_id}"
-
-  # Example job workflow - customize based on your notebooks
-  jobs:
-    example_workflow:
-      name: "${var.project_name} - Example Workflow"
-      tasks:
-        - task_key: example_notebook
-          notebook_task:
-            notebook_path: "./notebooks/example_notebook.ipynb"
-        - task_key: example_databricks_notebook
-          depends_on:
-            - task_key: example_notebook
-          notebook_task:
-            notebook_path: "./notebooks/example_databricks_notebook.py"
-
-# Example resources you can uncomment and customize:
-# resources:
-#   apps:
-#     your_app:
-#       name: "your-app-name"
-#       description: "Your app description"
-#       source_code_path: "./apps/your_app"
-#
-#   jobs:
-#     your_workflow:
-#       name: "Your Workflow Name"
-#       tasks:
-#         - task_key: first_task
-#           notebook_task:
-#             notebook_path: "./notebooks/your_first_notebook.ipynb"
-#         - task_key: second_task
-#           depends_on:
-#             - task_key: first_task
-#           notebook_task:
-#             notebook_path: "./notebooks/your_second_notebook.ipynb"
-#
-#   pipelines:
-#     your_pipeline:
-#       name: "Your Pipeline"
-#       storage: "/Shared/your-pipeline"
-#       configuration:
-#         your_config: "value"
-#
-#   models:
-#     your_model:
-#       name: "Your Model"
-#       model_path: "models/your_model"
-#
-#   dashboards:
-#     your_dashboard:
-#       display_name: "Your Dashboard"
-#       file_path: "./dashboards/your_dashboard.lvdash.json"
-
-# For more options and schema, see: https://docs.databricks.com/aws/en/dev-tools/bundles/settings
+    default: true
+  prod:
+    mode: production
