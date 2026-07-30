@@ -63,7 +63,7 @@ psycopg-binary==3.3.4 ; implementation_name != 'pypy'
     # via psycopg
 psycopg-pool==3.3.1
     # via psycopg
-pyasn1==0.6.3
+pyasn1==0.6.4
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
