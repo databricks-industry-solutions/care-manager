@@ -134,3 +134,8 @@ targets:
     default: true
   prod:
     mode: production
+    # `mode: production` requires an explicit root_path so a target can't be
+    # deployed twice into the same workspace from different machines. Scoped to
+    # the installing user, which keeps it portable across workspaces.
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}

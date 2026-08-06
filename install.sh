@@ -49,11 +49,16 @@ PY=(uv run --python 3.12 --with "psycopg[binary]" --with databricks-sdk)
 echo "== [1/6] Provision Lakebase instance + database =="
 "${PY[@]}" python scripts/provision.py
 
-echo "== [2/6] Deploy bundle (app + seed job) =="
-databricks bundle deploy -t "$TARGET" -p "$PROFILE" \
-  --var "catalog=$CATALOG" --var "warehouse_id=$WAREHOUSE_ID" \
-  --var "serving_endpoint=$ENDPOINT" --var "lakebase_instance=$INSTANCE" \
+# Every `bundle` invocation needs these: `warehouse_id` has no default in
+# databricks.yml, so `bundle run` fails without them just like `bundle deploy`.
+BUNDLE_VARS=(
+  --var "catalog=$CATALOG" --var "warehouse_id=$WAREHOUSE_ID"
+  --var "serving_endpoint=$ENDPOINT" --var "lakebase_instance=$INSTANCE"
   --var "pg_database=$PGDATABASE"
+)
+
+echo "== [2/6] Deploy bundle (app + seed job) =="
+databricks bundle deploy -t "$TARGET" -p "$PROFILE" "${BUNDLE_VARS[@]}"
 
 # Portable timeout (macOS has no coreutils `timeout`): run "$@" but kill it after
 # $1 seconds. Returns the child's status, or 124 on timeout.
@@ -69,7 +74,7 @@ NOTES_TIMEOUT="${NOTES_TIMEOUT:-480}"  # optional clinical-notes step; don't let
 
 echo "== [3/6] Seed dataset + load Lakebase ($SEED) =="
 if [[ "$SEED" == "job" ]]; then
-  databricks bundle run seed -t "$TARGET" -p "$PROFILE"
+  databricks bundle run seed -t "$TARGET" -p "$PROFILE" "${BUNDLE_VARS[@]}"
 else
   "${PY[@]}" --with polars --with numpy --with mimesis --with pandas --with pyarrow \
     --with "databricks-connect>=16.4,<17.0" python scripts/generate_hls_provider.py --catalog "$CATALOG"
@@ -93,7 +98,7 @@ echo "== [5/6] Deploy Genie space + AI/BI dashboard over the catalog =="
   echo "WARN: analytics (Genie/dashboard) deploy skipped; app is unaffected"
 
 echo "== [6/6] (Re)deploy app so it connects with grants =="
-databricks bundle run care_manager -t "$TARGET" -p "$PROFILE"
+databricks bundle run care_manager -t "$TARGET" -p "$PROFILE" "${BUNDLE_VARS[@]}"
 
 echo "== Done. App URL: =="
 databricks apps get "$APP_NAME" -p "$PROFILE" -o json | \
