@@ -41,6 +41,19 @@ resources:
       name: care-manager
       description: Outpatient care manager worklist with Lakebase + AI outreach briefs.
       source_code_path: ./
+      # Overrides app.yaml's static env at deploy time. The `database` resource
+      # injects PGHOST/PGUSER/PGPORT/PGDATABASE but NOT the instance *name*, and
+      # db.py needs the name to mint OAuth credentials — so it has to come from
+      # the same bundle variable the resource binding uses, or the app mints
+      # credentials for the wrong instance.
+      config:
+        env:
+          - name: LAKEBASE_INSTANCE
+            value: ${var.lakebase_instance}
+          - name: PGDATABASE
+            value: ${var.pg_database}
+          - name: SERVING_ENDPOINT
+            value: ${var.serving_endpoint}
       resources:
         - name: sql-warehouse
           sql_warehouse:

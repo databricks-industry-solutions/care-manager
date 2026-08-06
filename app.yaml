@@ -18,6 +18,11 @@ env:
   # Lakebase Postgres. PGHOST/PGUSER/PGPORT/PGDATABASE are injected by the
   # "database" app resource at runtime; we pin the logical db + instance name
   # so db.py resolves correctly even if an env var is absent.
+  #
+  # These are DEFAULTS ONLY. A bundle deploy overrides them from
+  # var.lakebase_instance / var.pg_database (see the app's `config.env` in
+  # databricks.yml), so installing with a non-default --instance works. Editing
+  # the values here only affects running the app outside the bundle.
   - name: PGDATABASE
     value: "caremanager"
   - name: LAKEBASE_INSTANCE
