@@ -171,7 +171,9 @@ INDEXES = [
 
 
 def pg_connect(w: WorkspaceClient) -> psycopg.Connection:
-    return _lakebase.connect(w, dbname=PGDATABASE, autocommit=False)
+    # Pass INSTANCE explicitly: main() re-resolves it from --instance, and job
+    # tasks forward no env vars for _lakebase's own default to pick up.
+    return _lakebase.connect(w, dbname=PGDATABASE, autocommit=False, instance=INSTANCE)
 
 
 def fetch_rows(w: WorkspaceClient, source: str, cols: list[tuple[str, str]]) -> list[list[Any]]:

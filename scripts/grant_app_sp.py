@@ -15,6 +15,7 @@ read/write on the target database's `public` schema. Idempotent.
 import argparse
 import os
 import sys
+from typing import Optional
 
 from databricks.sdk import WorkspaceClient
 
@@ -39,7 +40,7 @@ def app_sp_client_id(w: WorkspaceClient, app_name: str) -> str:
     return cid
 
 
-def grant(w: WorkspaceClient, sp: str, pgdatabase: str) -> None:
+def grant(w: WorkspaceClient, sp: str, pgdatabase: str, instance: Optional[str] = None) -> None:
     stmts = [
         f'GRANT CONNECT ON DATABASE "{pgdatabase}" TO "{sp}"',
         f'GRANT USAGE, CREATE ON SCHEMA public TO "{sp}"',
@@ -49,7 +50,9 @@ def grant(w: WorkspaceClient, sp: str, pgdatabase: str) -> None:
         f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{sp}"',
         f'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "{sp}"',
     ]
-    with _lakebase.connect(w, dbname=pgdatabase, autocommit=True) as conn, conn.cursor() as cur:
+    with _lakebase.connect(
+        w, dbname=pgdatabase, autocommit=True, instance=instance
+    ) as conn, conn.cursor() as cur:
         for s in stmts:
             cur.execute(s)
             print(f"OK: {s[:70]}", flush=True)
@@ -61,14 +64,17 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Grant the app SP on the Lakebase DB.")
     ap.add_argument("--app_name", "--app", dest="app_name")
     ap.add_argument("--pgdatabase", "--database", dest="pgdatabase")
+    # Job tasks forward no env vars, so the instance must be passable as an arg.
+    ap.add_argument("--lakebase_instance", "--instance", dest="lakebase_instance")
     args = ap.parse_args()
     app_name = args.app_name or os.environ.get("APP_NAME", "care-manager")
     pgdatabase = args.pgdatabase or _lakebase.PGDATABASE
+    instance = args.lakebase_instance or _lakebase.INSTANCE
 
     w = _lakebase.workspace_client()
     sp = app_sp_client_id(w, app_name)
-    print(f"Granting app SP {sp} on {pgdatabase} ...", flush=True)
-    grant(w, sp, pgdatabase)
+    print(f"Granting app SP {sp} on {instance}/{pgdatabase} ...", flush=True)
+    grant(w, sp, pgdatabase, instance=instance)
     print("Grant complete.", flush=True)
 
 

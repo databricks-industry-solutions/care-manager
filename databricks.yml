@@ -101,6 +101,8 @@ resources:
               - "care-manager"
               - "--database"
               - "${var.pg_database}"
+              - "--instance"
+              - "${var.lakebase_instance}"
         - task_key: deploy_analytics
           depends_on:
             - task_key: load_lakebase

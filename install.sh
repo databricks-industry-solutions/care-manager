@@ -89,7 +89,8 @@ else
 fi
 
 echo "== [4/6] Grant app service principal on the database =="
-"${PY[@]}" python scripts/grant_app_sp.py --app "$APP_NAME" --database "$PGDATABASE"
+"${PY[@]}" python scripts/grant_app_sp.py --app "$APP_NAME" --database "$PGDATABASE" \
+  --instance "$INSTANCE"
 
 echo "== [5/6] Deploy Genie space + AI/BI dashboard over the catalog =="
 # Optional analytics layer (pairs the app with a Population Health Genie space
