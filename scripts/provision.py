@@ -12,6 +12,7 @@ import time
 
 import psycopg
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors import NotFound
 from databricks.sdk.service import database as db
 
 # Make the sibling `_lakebase` module importable when exec()'d as a job task.
@@ -27,18 +28,51 @@ import _lakebase
 INSTANCE = _lakebase.INSTANCE
 PGDATABASE = _lakebase.PGDATABASE
 CAPACITY = os.environ.get("LAKEBASE_CAPACITY", "CU_1")
+# Reusing an instance someone else created would seed ~200K rows of synthetic
+# data into their database. Adopt our own silently; refuse theirs unless the
+# operator opts in explicitly.
+ADOPT_EXISTING = os.environ.get("LAKEBASE_ADOPT_EXISTING", "").lower() in ("1", "true", "yes")
+
+
+def _check_adoptable(w: WorkspaceClient, inst) -> None:
+    """Refuse to seed an instance created by someone else unless opted in.
+
+    The installer writes a synthetic dataset into the instance's `caremanager`
+    database, so silently adopting a colleague's instance would pollute it. The
+    `creator` field records who ran the create call — a guardrail against the
+    common accident, not an authorization check.
+    """
+    if ADOPT_EXISTING or not inst.creator:
+        return
+    me = w.current_user.me().user_name
+    if inst.creator == me:
+        return
+    raise SystemExit(
+        f"\nRefusing to use Lakebase instance '{INSTANCE}'.\n"
+        f"  It already exists and was created by {inst.creator}, not you ({me}).\n"
+        f"  Seeding it would write a synthetic dataset into their "
+        f"'{PGDATABASE}' database.\n\n"
+        f"  Either pick another name:   --instance <your-own-name>\n"
+        f"  or adopt it deliberately:   LAKEBASE_ADOPT_EXISTING=1 ./install.sh ...\n"
+    )
 
 
 def ensure_instance(w: WorkspaceClient) -> None:
-    """Create the Lakebase instance if absent, then wait until AVAILABLE."""
+    """Create the Lakebase instance if absent, then wait until AVAILABLE.
+
+    Only NotFound means "absent" — any other error (auth, permissions, a
+    transient outage) must surface rather than be misread as a reason to create.
+    """
     try:
         inst = w.database.get_database_instance(name=INSTANCE)
-        print(f"Instance {INSTANCE} exists (state={inst.state})", flush=True)
-    except Exception:
+    except NotFound:
         print(f"Creating Lakebase instance {INSTANCE} ({CAPACITY}) ...", flush=True)
         w.database.create_database_instance(
             database_instance=db.DatabaseInstance(name=INSTANCE, capacity=CAPACITY)
         )
+    else:
+        _check_adoptable(w, inst)
+        print(f"Instance {INSTANCE} exists (state={inst.state})", flush=True)
     # Poll to AVAILABLE regardless of who created it (create returns a Wait, but
     # a pre-existing instance may still be starting).
     for _ in range(60):
