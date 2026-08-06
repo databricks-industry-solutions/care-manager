@@ -23,7 +23,7 @@ from functools import lru_cache
 from typing import Any, Callable, Optional, TypeVar
 
 import psycopg
-from psycopg_pool import ConnectionPool, PoolTimeout
+from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout
 
 from .config import IS_DATABRICKS_APP, get_workspace_client
 
@@ -35,7 +35,13 @@ _T = TypeVar("_T")
 # has to refresh — this makes the request self-heal instead. psycopg.OperationalError
 # is the base for connection/timeout failures; PoolTimeout is raised when the
 # pool can't hand out a connection within its timeout.
-_RETRYABLE = (psycopg.OperationalError, PoolTimeout)
+#
+# PoolClosed matters for a *permanently* stuck app: if open_pool()'s warmup
+# exhausts its retries at boot (Lakebase briefly unreachable), the pool is left
+# unopened and every later request raises PoolClosed. Without it here that state
+# never recovers and the app 500s until someone restarts it manually — with it,
+# _reset_for_retry() rebuilds the pool and the request self-heals.
+_RETRYABLE = (psycopg.OperationalError, PoolTimeout, PoolClosed)
 
 
 def _with_retry(fn: Callable[[], _T], attempts: int = 3, base_delay: float = 1.0) -> _T:
@@ -132,7 +138,12 @@ def _conninfo() -> str:
 
 
 def init_pool() -> ConnectionPool:
-    """Create the pool (opened lazily / in the FastAPI lifespan)."""
+    """Return the pool, creating and opening it if needed.
+
+    Normally open_pool() has already opened it during app startup. If that
+    warmup failed (or a retry reset the pool), open it here so a request can
+    still be served instead of hitting PoolClosed forever.
+    """
     global _pool
     if _pool is None:
         _pool = ConnectionPool(
@@ -145,6 +156,9 @@ def init_pool() -> ConnectionPool:
             timeout=30,
             open=False,
         )
+    if _pool.closed:
+        # Raises on failure; _with_retry decides whether to try again.
+        _pool.open(wait=True, timeout=30)
     return _pool
 
 
