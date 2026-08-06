@@ -109,9 +109,12 @@ The app URL is printed at the end. Re-run any time; each step is idempotent.
 ### Or step-by-step with the CLI
 ```
 LAKEBASE_INSTANCE=care-manager-db uv run python scripts/provision.py
-databricks bundle deploy -t prod --var catalog=… --var warehouse_id=… --var serving_endpoint=…
-databricks bundle run seed -t prod          # generate data + load + grant SP
-databricks bundle run care_manager -t prod  # (re)deploy the app
+# `warehouse_id` has no default, so every bundle command needs these vars —
+# `bundle run` as much as `bundle deploy`.
+VARS="--var catalog=… --var warehouse_id=… --var serving_endpoint=…"
+databricks bundle deploy -t prod $VARS
+databricks bundle run seed -t prod $VARS          # generate data + load + grant SP
+databricks bundle run care_manager -t prod $VARS  # (re)deploy the app
 ```
 
 > **Service principal grant.** The app connects to Lakebase as its own service
