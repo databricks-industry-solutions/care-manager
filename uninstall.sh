@@ -10,7 +10,11 @@
 # drop it yourself if you want it gone (it may hold other assets).
 #
 # Usage:
-#   ./uninstall.sh -p <profile> [--target dev|prod] [--delete-instance] [--yes]
+#   ./uninstall.sh -p <profile> [--target dev|prod] [--instance <name>] \
+#                  [--warehouse <id>] [--delete-instance] [--yes]
+#
+# Pass the same --target (and --instance, if non-default) you installed with:
+# --target defaults to dev, so omitting it after a prod install destroys nothing.
 set -euo pipefail
 
 PROFILE=""; TARGET="dev"; INSTANCE="care-manager-db"; PGDATABASE="caremanager"
