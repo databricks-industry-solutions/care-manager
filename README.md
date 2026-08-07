@@ -125,9 +125,14 @@ databricks bundle run care_manager -t prod $VARS  # (re)deploy the app
 ## Uninstall
 
 ```
-./uninstall.sh --profile <cli_profile> --target prod    # app + seed job + drop the caremanager DB
-./uninstall.sh --profile <cli_profile> --delete-instance # also delete the Lakebase instance
+./uninstall.sh --profile <cli_profile> --target prod                    # app + seed job + drop the caremanager DB
+./uninstall.sh --profile <cli_profile> --target prod --delete-instance  # also delete the Lakebase instance
 ```
+Pass the same `--target` you installed with (and `--instance` if you used a
+non-default name). `--target` defaults to `dev`, so omitting it after a `prod`
+install points `bundle destroy` at a deployment that doesn't exist and the app
+and seed job are left in place.
+
 Idempotent. It does **not** drop the Unity Catalog `--catalog` (it may hold
 other assets) — drop that yourself if you want the synthetic data gone.
 
